@@ -159,6 +159,8 @@ Edit the CSS variables in `styles.css`:
 [data-theme="dark"] {
     --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
     --bg-primary: #0f172a;
+```
+
 ## 🛠️ Technologies Used
 
 - **HTML5** - Semantic markup
