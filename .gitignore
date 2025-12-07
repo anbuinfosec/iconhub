@@ -55,3 +55,4 @@ yarn-error.log*
 *.bak
 *.tmp
 *~
+categories.json

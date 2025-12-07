@@ -61,19 +61,57 @@ A modern, responsive icon gallery web application for browsing and managing your
 
 ### GitHub Pages Deployment
 
-1. Push your code to GitHub
-2. Go to repository **Settings** → **Pages**
-3. Select **main** branch as source
-4. Your site will be live at `https://yourusername.github.io/iconhub`
+The project uses **GitHub Actions** to automatically build and deploy to GitHub Pages:
+
+1. **Push your code to GitHub**
+   ```bash
+   git add .
+   git commit -m "Initial commit"
+   git push origin main
+   ```
+
+2. **Enable GitHub Pages**
+   - Go to repository **Settings** → **Pages**
+   - Under "Build and deployment" select **GitHub Actions** as the source
+
+3. **Automatic Deployment**
+   - The workflow will automatically run on every push to `main`
+   - Python build script generates `categories.json` from your icons
+   - Site deploys automatically to `https://yourusername.github.io/iconhub`
+
+4. **Manual Deployment** (optional)
+   - Go to **Actions** tab in your repository
+   - Click "Build and Deploy to GitHub Pages"
+   - Click "Run workflow"
+
+### How the Build Works
+
+The build process uses Python to scan your `icons/` folder structure:
+
+```bash
+# Run locally to test
+python3 build.py
+```
+
+This generates `categories.json` with:
+- All category folders automatically detected
+- Icon file lists for each category
+- Proper display names and icons
+- Accurate icon counts
 
 ## 📁 Project Structure
 
 ```
-icon-gallery/
-├── index.html          # Main HTML file
-├── styles.css          # All styles including responsive design
-├── script.js           # JavaScript functionality
-├── icons/              # Icon categories
+iconhub/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml       # GitHub Actions workflow
+├── index.html               # Main HTML file
+├── styles.css               # All styles including responsive design
+├── script.js                # JavaScript functionality
+├── build.py                 # Python build script
+├── categories.json          # Generated icon data (auto-created)
+├── icons/                   # Icon categories
 │   ├── cloud/
 │   ├── databases/
 │   ├── frameworks/
@@ -94,8 +132,13 @@ icon-gallery/
 ### Adding New Icons
 
 1. Create a new folder in `icons/` directory (e.g., `icons/my-category/`)
-2. Add your icon files (SVG, PNG, JPG supported)
-3. The gallery will automatically detect and display them!
+2. Add your icon files (SVG, PNG, JPG, GIF, WebP supported)
+3. Run the build script to update categories:
+   ```bash
+   python3 build.py
+   ```
+4. The gallery will automatically detect and display them!
+5. Push to GitHub and the Actions workflow will rebuild automatically
 
 ### Changing Colors
 
@@ -116,14 +159,16 @@ Edit the CSS variables in `styles.css`:
 [data-theme="dark"] {
     --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
     --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    /* ... more variables */
-}
-```
-
 ## 🛠️ Technologies Used
 
 - **HTML5** - Semantic markup
+- **CSS3** - Modern styling with CSS Grid and Flexbox
+- **JavaScript (ES6+)** - Dynamic functionality
+- **Python 3** - Build script for generating category data
+- **GitHub Actions** - Automated deployment workflow
+- **Bootstrap 5.3.3** - UI components and utilities
+- **Bootstrap Icons** - Icon library for UI elements
+- **Google Fonts (Inter)** - Typography
 - **CSS3** - Modern styling with CSS Grid and Flexbox
 - **JavaScript (ES6+)** - Dynamic functionality
 - **Bootstrap 5.3.3** - UI components and utilities
