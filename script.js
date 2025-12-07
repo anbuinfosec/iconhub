@@ -1,0 +1,725 @@
+// Dynamic icon categories - auto-detected from icons folder
+let categories = {};
+
+// Icon mapping for category icons
+const categoryIcons = {
+    cloud: 'bi-cloud-fill',
+    databases: 'bi-database-fill',
+    frameworks: 'bi-layers-fill',
+    ides: 'bi-code-square',
+    programming_languages: 'bi-braces',
+    text_editor: 'bi-pencil-square',
+    social: 'bi-share-fill',
+    others: 'bi-grid-3x3-gap-fill'
+};
+
+// Format folder name to display name
+function formatCategoryName(folderName) {
+    // Replace underscores with spaces and title case
+    return folderName
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
+// Auto-detect all category folders from icons directory
+async function detectCategories() {
+    try {
+        const response = await fetch('./icons/');
+        const text = await response.text();
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const links = doc.querySelectorAll('a');
+        
+        const folders = [];
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            // Get folder names (ending with /)
+            if (href && href.endsWith('/') && !href.includes('..')) {
+                const folderName = href.replace('/', '');
+                folders.push(folderName);
+            }
+        });
+        
+        // Sort folders alphabetically
+        folders.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        
+        // Create categories object
+        folders.forEach(folder => {
+            categories[folder] = {
+                name: formatCategoryName(folder),
+                icon: categoryIcons[folder] || 'bi-folder-fill',
+                count: 0,
+                files: []
+            };
+        });
+        
+        console.log('Detected categories:', Object.keys(categories));
+        return folders;
+    } catch (error) {
+        console.error('Error detecting categories:', error);
+        return [];
+    }
+}
+
+// Auto-load files from a category folder
+async function loadCategoryFiles(category) {
+    try {
+        const response = await fetch(`./icons/${category}/`);
+        const text = await response.text();
+        
+        // Parse HTML to extract image filenames
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const links = doc.querySelectorAll('a');
+        
+        const files = [];
+        links.forEach(link => {
+            const href = link.getAttribute('href');
+            // Filter only image files and exclude parent directory
+            if (href && !href.includes('..') && /\.(svg|png|jpg|jpeg|gif|webp)$/i.test(href)) {
+                files.push(href);
+            }
+        });
+        
+        // Sort files alphabetically
+        return files.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    } catch (error) {
+        console.error(`Error loading files for ${category}:`, error);
+        return [];
+    }
+}
+
+// Initialize categories by detecting folders and loading files
+async function initializeCategories() {
+    // First detect all category folders
+    await detectCategories();
+    
+    // Then load files for each category
+    const loadingPromises = Object.keys(categories).map(async (categoryKey) => {
+        const files = await loadCategoryFiles(categoryKey);
+        categories[categoryKey].files = files;
+        categories[categoryKey].count = files.length;
+    });
+    
+    await Promise.all(loadingPromises);
+    console.log('Categories initialized with counts:', Object.keys(categories).map(k => `${k}: ${categories[k].count}`));
+    
+    // Generate category cards dynamically
+    generateCategoryCards();
+    
+    // Update total icon count in footer
+    updateTotalIconCount();
+}
+
+// Update total icon count in navbar and footer
+function updateTotalIconCount() {
+    const totalIcons = Object.values(categories).reduce((sum, cat) => sum + cat.count, 0);
+    
+    // Update navbar count
+    const navbarCountElement = document.getElementById('navbarIconCount');
+    if (navbarCountElement) {
+        animateNumber(navbarCountElement, totalIcons);
+    }
+    
+    // Update footer count
+    const footerCountElement = document.getElementById('totalIconCount');
+    if (footerCountElement) {
+        animateNumber(footerCountElement, totalIcons);
+    }
+}
+
+// Dynamic URL detection - works with any domain
+const getBaseUrl = () => {
+    // Get the current page URL without the filename
+    const url = window.location.href;
+    const lastSlash = url.lastIndexOf('/');
+    return url.substring(0, lastSlash);
+};
+
+const BASE_URL = getBaseUrl();
+
+// GitHub repository URL (for reference)
+const GITHUB_REPO = 'https://github.com/anbuinfosec/iconhub';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/anbuinfosec/iconhub/main';
+
+// Theme management
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+}
+
+function updateThemeIcon(theme) {
+    const icon = document.querySelector('#themeToggle i');
+    if (theme === 'dark') {
+        icon.className = 'bi bi-sun-fill';
+    } else {
+        icon.className = 'bi bi-moon-fill';
+    }
+}
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+});
+
+// Initialize on page load
+initTheme();
+
+// Generate category cards dynamically
+function generateCategoryCards() {
+    const categoryGrid = document.getElementById('categoryGrid');
+    
+    // Clear existing cards
+    categoryGrid.innerHTML = '';
+    
+    // Sort categories alphabetically
+    const sortedCategories = Object.keys(categories).sort();
+    
+    // Generate cards for each category
+    sortedCategories.forEach((key, index) => {
+        const category = categories[key];
+        const card = document.createElement('div');
+        card.className = 'category-card';
+        card.setAttribute('data-category', key);
+        card.style.animationDelay = `${index * 0.1}s`;
+        
+        card.innerHTML = `
+            <div class="category-icon">
+                <i class="${category.icon}"></i>
+            </div>
+            <h3>${category.name}</h3>
+            <p>${category.count} icons</p>
+            <div class="category-arrow">
+                <i class="bi bi-arrow-right"></i>
+            </div>
+        `;
+        
+        // Add click handler
+        card.addEventListener('click', function() {
+            const categoryKey = this.getAttribute('data-category');
+            showCategoryIcons(categoryKey);
+        });
+        
+        categoryGrid.appendChild(card);
+    });
+}
+
+// Animate number counting
+function animateNumber(element, target) {
+    let current = 0;
+    const increment = Math.ceil(target / 30);
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+            current = target;
+            clearInterval(timer);
+        }
+        element.textContent = current;
+    }, 30);
+}
+
+// Show icons for a specific category
+function showCategoryIcons(category) {
+    const categoryData = categories[category];
+    if (!categoryData) {
+        console.error('Category not found:', category);
+        return;
+    }
+
+    console.log('Showing category:', category, 'with', categoryData.count, 'icons');
+
+    // Hide home view
+    document.getElementById('homeView').classList.add('d-none');
+    
+    // Show icons view
+    const iconsView = document.getElementById('iconsView');
+    iconsView.classList.remove('d-none');
+    
+    // Update header
+    document.getElementById('categoryTitle').innerHTML = `
+        <i class="${categoryData.icon} me-2"></i>${categoryData.name}
+    `;
+    document.getElementById('iconCount').textContent = `${categoryData.count} icons`;
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Load icons
+    loadIcons(category, categoryData);
+}
+
+// Load and display icons
+async function loadIcons(category, categoryData) {
+    const iconGrid = document.getElementById('iconGrid');
+    iconGrid.innerHTML = '<div class="col-12 loading"><i class="bi bi-arrow-repeat"></i><p>Loading icons...</p></div>';
+    
+    try {
+        let files = categoryData.files;
+        
+        // If files not loaded yet, load them
+        if (files.length === 0) {
+            files = await loadCategoryFiles(category);
+            categoryData.files = files;
+            categoryData.count = files.length;
+        }
+        
+        // Files are already sorted in initializeCategories
+        
+        // Clear the grid
+        iconGrid.innerHTML = '';
+        
+        // Generate icon cards
+        if (files.length === 0) {
+            iconGrid.innerHTML = '<div class="col-12 empty-state"><i class="bi bi-inbox"></i><p>No icons found in this category</p></div>';
+        } else {
+            files.forEach(file => {
+                const iconCard = createIconCard(category, file);
+                iconGrid.appendChild(iconCard);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading icons:', error);
+        iconGrid.innerHTML = '<div class="col-12 empty-state"><i class="bi bi-exclamation-triangle"></i><p>Error loading icons</p></div>';
+    }
+}
+
+
+
+// Format filename to display name with special cases
+function formatIconName(filename) {
+    // Remove file extension
+    let name = filename.replace(/\.(svg|png|jpg|jpeg)$/i, '');
+    
+    // Handle special cases
+    const specialNames = {
+        'csharp': 'C#',
+        'cplusplus': 'C++',
+        'notepadplusplus': 'Notepad++',
+        'ko-fi': 'Ko-fi',
+        'dev_to': 'Dev.to',
+        'itch_io': 'Itch.io'
+    };
+    
+    // Check if it's a special case
+    if (specialNames[name.toLowerCase()]) {
+        return specialNames[name.toLowerCase()];
+    }
+    
+    // Replace underscores and hyphens with spaces
+    name = name.replace(/[-_]/g, ' ');
+    
+    // Capitalize first letter of each word (except small words)
+    name = name.split(' ').map((word, index) => {
+        // Capitalize acronyms and first word
+        if (word.length <= 2 || index === 0) {
+            return word.toUpperCase();
+        }
+        // Otherwise title case
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
+    
+    return name;
+}
+
+// Create icon card element
+function createIconCard(category, filename) {
+    const card = document.createElement('div');
+    card.className = 'icon-card';
+    card.setAttribute('data-icon', filename);
+    card.setAttribute('data-category', category);
+    
+    const name = formatIconName(filename);
+    const iconUrl = `./icons/${category}/${filename}`;
+    // Use current domain URL for copying (works locally and on GitHub Pages)
+    const shareUrl = `${BASE_URL}/icons/${category}/${filename}`;
+    
+    card.innerHTML = `
+        <div class="icon-actions">
+            <button class="action-btn copy-url" title="Copy URL" data-url="${shareUrl}">
+                <i class="bi bi-link-45deg"></i> URL
+            </button>
+            <button class="action-btn copy-markdown" title="Copy Markdown" data-url="${shareUrl}" data-name="${name}">
+                <i class="bi bi-markdown"></i> MD
+            </button>
+            <button class="action-btn copy-embed" title="Copy HTML" data-url="${shareUrl}" data-name="${name}">
+                <i class="bi bi-code-slash"></i> HTML
+            </button>
+        </div>
+        <div class="icon-wrapper">
+            <img src="${iconUrl}" alt="${name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖼️</text></svg>'">
+        </div>
+        <div class="icon-name">${name}</div>
+    `;
+    
+    // Add copy button handlers
+    const copyUrlBtn = card.querySelector('.copy-url');
+    const copyMdBtn = card.querySelector('.copy-markdown');
+    const copyEmbedBtn = card.querySelector('.copy-embed');
+    
+    console.log('Setting up copy buttons for:', name);
+    
+    if (copyUrlBtn) {
+        copyUrlBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            console.log('=== Copy URL clicked ===');
+            console.log('URL:', shareUrl);
+            copyToClipboard(shareUrl, '✓ URL copied!');
+        });
+    } else {
+        console.warn('Copy URL button not found');
+    }
+    
+    if (copyMdBtn) {
+        copyMdBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const markdown = `![${name}](${shareUrl})`;
+            console.log('=== Copy Markdown clicked ===');
+            console.log('Markdown:', markdown);
+            copyToClipboard(markdown, '✓ Markdown copied!');
+        });
+    } else {
+        console.warn('Copy Markdown button not found');
+    }
+    
+    if (copyEmbedBtn) {
+        copyEmbedBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const html = `<img src="${shareUrl}" alt="${name}" width="100">`;
+            console.log('=== Copy HTML clicked ===');
+            console.log('HTML:', html);
+            copyToClipboard(html, '✓ HTML copied!');
+        });
+    } else {
+        console.warn('Copy HTML button not found');
+    }
+    
+    return card;
+}
+
+// Copy to clipboard function with fallback
+function copyToClipboard(text, message) {
+    console.log('Copying to clipboard:', text);
+    
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            console.log('Copy successful (clipboard API):', message);
+            showToast(message, 'success');
+        }).catch(err => {
+            console.error('Clipboard API failed:', err);
+            fallbackCopyToClipboard(text, message);
+        });
+    } else {
+        // Fallback for older browsers or non-secure contexts
+        console.log('Clipboard API not available, using fallback');
+        fallbackCopyToClipboard(text, message);
+    }
+}
+
+// Fallback copy method using textarea
+function fallbackCopyToClipboard(text, message) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            console.log('Copy successful (fallback method):', message);
+            showToast(message, 'success');
+        } else {
+            console.error('Fallback copy failed');
+            showToast('Failed to copy', 'danger');
+        }
+    } catch (err) {
+        console.error('Fallback copy error:', err);
+        showToast('Failed to copy', 'danger');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// Show toast notification
+function showToast(message, type = 'success') {
+    console.log('showToast called with:', message, type);
+    
+    const toastContainer = document.getElementById('toastContainer');
+    
+    if (!toastContainer) {
+        console.error('Toast container not found!');
+        alert(message); // Fallback to alert if toast container not found
+        return;
+    }
+    
+    console.log('Toast container found, creating toast element');
+    
+    // Map type to Bootstrap colors and icons
+    const typeConfig = {
+        success: { bg: 'success', icon: 'bi-check-circle-fill' },
+        danger: { bg: 'danger', icon: 'bi-exclamation-circle-fill' },
+        warning: { bg: 'warning', icon: 'bi-exclamation-triangle-fill' },
+        info: { bg: 'info', icon: 'bi-info-circle-fill' }
+    };
+    
+    const config = typeConfig[type] || typeConfig.success;
+    
+    // Create toast element
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-white bg-${config.bg} border-0 mb-2`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+    
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="${config.icon} me-2"></i>
+                <strong>${message}</strong>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toastEl);
+    console.log('Toast element appended to container');
+    
+    // Check if Bootstrap is available
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap is not loaded!');
+        alert(message); // Fallback
+        return;
+    }
+    
+    // Initialize and show toast using Bootstrap 5.3.8 API
+    const toast = new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: 3000
+    });
+    
+    console.log('Toast initialized, showing now...');
+    toast.show();
+    
+    // Remove toast element after it's hidden
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        console.log('Toast hidden, removing element');
+        toastEl.remove();
+    });
+}
+
+// Back button handler
+document.getElementById('backButton').addEventListener('click', () => {
+    document.getElementById('iconsView').classList.add('d-none');
+    document.getElementById('homeView').classList.remove('d-none');
+    document.getElementById('searchInput').value = '';
+    
+    // Remove no results message if exists
+    const existingMsg = document.querySelector('.no-results');
+    if (existingMsg) existingMsg.remove();
+    
+    // Show all categories
+    const cards = document.querySelectorAll('.category-card');
+    cards.forEach(card => {
+        card.style.display = 'block';
+    });
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', async function(e) {
+    const searchTerm = e.target.value.toLowerCase().trim();
+    
+    // If on home view, filter categories
+    if (!document.getElementById('homeView').classList.contains('d-none')) {
+        await filterCategories(searchTerm);
+    } else {
+        // If on icons view, filter icons
+        filterIcons(searchTerm);
+    }
+});
+
+async function filterCategories(searchTerm) {
+    if (!searchTerm) {
+        // Show all categories if search is empty
+        const cards = document.querySelectorAll('.category-card');
+        cards.forEach(card => {
+            card.style.display = 'block';
+        });
+        // Remove no results message if exists
+        const existingMsg = document.querySelector('.no-results');
+        if (existingMsg) existingMsg.remove();
+        return;
+    }
+    
+    // Search across all categories and show matching icons
+    let matchingIcons = [];
+    
+    // Load all files including any not yet loaded
+    for (const categoryKey of Object.keys(categories)) {
+        const category = categories[categoryKey];
+        let files = category.files;
+        
+        // Load files if not yet loaded
+        if (files.length === 0) {
+            files = await loadCategoryFiles(categoryKey);
+            category.files = files;
+            category.count = files.length;
+        }
+        
+        files.forEach(file => {
+            const displayName = formatIconName(file);
+            const searchableName = displayName.toLowerCase();
+            const fileName = file.replace(/\.(svg|png|jpg|jpeg)$/i, '').toLowerCase();
+            
+            // Search in both display name and filename
+            if (searchableName.includes(searchTerm) || fileName.includes(searchTerm)) {
+                matchingIcons.push({ category: categoryKey, file: file, name: displayName });
+            }
+        });
+    }
+    
+    if (matchingIcons.length > 0) {
+        // Show search results
+        showSearchResults(searchTerm, matchingIcons);
+    } else {
+        // Filter categories by name
+        const cards = document.querySelectorAll('.category-card');
+        let hasVisibleCategory = false;
+        cards.forEach(card => {
+            const categoryTitle = card.querySelector('h3');
+            if (categoryTitle) {
+                const categoryName = categoryTitle.textContent.toLowerCase();
+                if (categoryName.includes(searchTerm)) {
+                    card.style.display = 'block';
+                    hasVisibleCategory = true;
+                } else {
+                    card.style.display = 'none';
+                }
+            }
+        });
+        
+        if (!hasVisibleCategory) {
+            // No categories match, show message
+            const homeView = document.getElementById('homeView');
+            const existingMsg = homeView.querySelector('.no-results');
+            if (!existingMsg) {
+                const noResults = document.createElement('div');
+                noResults.className = 'col-12 text-center no-results';
+                noResults.innerHTML = '<p class="text-muted">No categories or icons found matching your search.</p>';
+                homeView.appendChild(noResults);
+            }
+        } else {
+            // Remove no results message if exists
+            const existingMsg = document.querySelector('.no-results');
+            if (existingMsg) existingMsg.remove();
+        }
+    }
+}
+
+function showSearchResults(searchTerm, matchingIcons) {
+    // Hide home view
+    document.getElementById('homeView').classList.add('d-none');
+    
+    // Show icons view
+    const iconsView = document.getElementById('iconsView');
+    iconsView.classList.remove('d-none');
+    
+    // Update header
+    document.getElementById('categoryTitle').innerHTML = `
+        <i class="bi bi-search me-2"></i>Search Results
+    `;
+    document.getElementById('iconCount').textContent = `${matchingIcons.length} icons found`;
+    
+    // Display icons
+    const iconGrid = document.getElementById('iconGrid');
+    iconGrid.innerHTML = '';
+    
+    matchingIcons.forEach(item => {
+        const iconCard = createIconCard(item.category, item.file);
+        iconGrid.appendChild(iconCard);
+    });
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function filterIcons(searchTerm) {
+    const iconCards = document.querySelectorAll('.icon-card');
+    let visibleCount = 0;
+    let totalCount = iconCards.length;
+    
+    iconCards.forEach(card => {
+        const iconNameEl = card.querySelector('.icon-name');
+        if (iconNameEl) {
+            const iconName = iconNameEl.textContent.toLowerCase();
+            if (iconName.includes(searchTerm)) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        }
+    });
+    
+    // Update count badge
+    const badge = document.getElementById('iconCount');
+    if (badge) {
+        if (searchTerm) {
+            badge.textContent = `${visibleCount} of ${totalCount} icons`;
+        } else {
+            badge.textContent = `${totalCount} icons`;
+        }
+    }
+}
+
+// Initialize the page
+initializeCategories();
+
+// Add smooth scroll behavior
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+});
+
+// Add animation on scroll
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.animation = 'fadeIn 0.6s ease-out';
+            observer.unobserve(entry.target);
+        }
+    });
+}, observerOptions);
+
+// Observe all category and icon cards
+document.querySelectorAll('.category-card, .icon-card').forEach(card => {
+    observer.observe(card);
+});
+
+console.log('%c🎨 Icon Gallery Loaded Successfully! ', 'background: #0d6efd; color: white; font-size: 16px; padding: 10px; border-radius: 5px;');
+console.log('%cMade with ❤️ by @anbuinfosec', 'color: #0d6efd; font-size: 14px; font-weight: bold;');
